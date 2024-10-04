@@ -2,12 +2,25 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use App\Action\UserAction;
 use App\Repository\OrderRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
 
+#[ApiResource(
+    operations: [
+        new Get(normalizationContext: ['groups' => ['order:get']]),
+        new GetCollection(security: "is_granted('ROLE_USER')"),
+        new Post(normalizationContext: ['groups' => ['order:get']], denormalizationContext: ['groups' => ['order:post']]),
+    ]
+)]
 #[ORM\Entity(repositoryClass: OrderRepository::class)]
 #[ORM\Table(name: '`order`')]
 class Order
@@ -17,24 +30,46 @@ class Order
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Groups([
+        'order:get',
+        'order:post',
+    ])]
     #[ORM\ManyToOne(inversedBy: 'orders')]
     private ?User $user = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 3, scale: 3)]
+    #[Groups([
+        'user:get',
+        'order:get',
+        'order:post',
+    ])]
+    #[ORM\Column(type: Types::DECIMAL)]
     private ?float $total_amount = null;
 
+    #[Groups([
+        'user:get',
+        'order:get',
+        'order:post',
+    ])]
     #[ORM\Column(length: 255)]
     private ?string $status = null;
 
+    #[Groups([
+        'order:get',
+    ])]
     #[ORM\OneToMany(targetEntity: OrderItems::class, mappedBy: 'order')]
     private Collection $orderItems;
 
+    #[Groups([
+        'user:get',
+        'order:get',
+    ])]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $created_at = null;
 
     public function __construct()
     {
         $this->orderItems = new ArrayCollection();
+        $this->created_at = new \DateTimeImmutable();
     }
 
     public function getId(): ?int

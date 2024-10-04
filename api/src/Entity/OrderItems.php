@@ -2,8 +2,14 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Metadata\ApiResource;
 use App\Repository\OrderItemsRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
+
+#[ApiResource(
+
+)]
 
 #[ORM\Entity(repositoryClass: OrderItemsRepository::class)]
 class OrderItems
@@ -16,12 +22,24 @@ class OrderItems
     #[ORM\ManyToOne(targetEntity: Order::class, inversedBy: 'orderItems')]
     private ?Order $order = null;
 
+    #[Groups([
+        'user:get',
+        'order:get',
+    ])]
     #[ORM\ManyToOne(targetEntity: Product::class, inversedBy: 'orderItems')]
     private ?Product $product = null;
 
+    #[Groups([
+        'user:get',
+        'order:get',
+    ])]
     #[ORM\Column]
     private ?int $quantity = null;
 
+    #[Groups([
+        'user:get',
+        'order:get',
+    ])]
     #[ORM\Column]
     private ?float $price = null;
 
