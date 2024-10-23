@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-class OrderController
+class TicketConroller
 {
 
 }

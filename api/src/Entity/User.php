@@ -14,16 +14,16 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ApiResource(
     operations: [
         new Get(normalizationContext: ['groups' => ['user:get']]),
-        new GetCollection(security: "is_granted('ROLE_USER')"),
+        new GetCollection(security: "is_granted('ROLE_ADMIN')"),
         new Post(controller: UserAction::class, normalizationContext: ['groups' => ['user:get']], denormalizationContext: ['groups' => ['user:post']]),
     ]
 )]
-
+#[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
@@ -34,52 +34,78 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    private ?int $id = null;
-
     #[Groups([
         'user:get',
-        'user:post',
+        'user:post'
+    ])]
+    private ?int $id = null;
+    #[Groups([
+        'user:get',
+        'user:post'
     ])]
     #[ORM\Column(length: 255)]
     private ?string $name = null;
-
     #[Groups([
         'user:get',
-        'user:post',
+        'user:post'
     ])]
     #[ORM\Column(length: 255)]
     private ?string $email = null;
-
     #[Groups([
         'user:get',
-        'user:post',
+        'user:post'
     ])]
     #[ORM\Column(length: 255)]
     private ?string $password = null;
-
     #[Groups([
         'user:get',
-        'user:post',
+        'user:post'
     ])]
-    #[ORM\Column(type: Types::TEXT)]
-    private ?string $address = null;
-
-    #[Groups([
-        'user:get',
-    ])]
-    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'user')]
-    private Collection $orders;
-
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private ?\DateTimeInterface $created_at = null;
-
     #[ORM\Column(type: Types::JSON)]
     private array $roles = [];
+    #[Groups([
+        'user:get',
+        'user:post'
+    ])]
+    #[ORM\OneToMany(targetEntity: Order::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private Collection $orders;
+    #[Groups([
+        'user:get',
+        'user:post'
+    ])]
+    #[ORM\OneToMany(targetEntity: Ticket::class, mappedBy: 'user')]
+    private Collection $tickets;
 
     public function __construct()
     {
         $this->orders = new ArrayCollection();
-        $this->created_at = new \DateTime();
+        $this->tickets = new ArrayCollection();
+    }
+
+    public function getTickets(): Collection
+    {
+        return $this->tickets;
+    }
+
+    public function addTicket(Ticket $ticket): self
+    {
+        if (!$this->tickets->contains($ticket)) {
+            $this->tickets[] = $ticket;
+            $ticket->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTicket(Ticket $ticket): self
+    {
+        if ($this->tickets->removeElement($ticket)) {
+            if ($ticket->getUser() === $this) {
+                $ticket->setUser(null);
+            }
+        }
+
+        return $this;
     }
 
     public function getId(): ?int
@@ -92,7 +118,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->name;
     }
 
-    public function setName(string $name): self
+    public function setName(string $name):  self
     {
         $this->name = $name;
 
@@ -123,64 +149,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getAddress(): ?string
-    {
-        return $this->address;
-    }
-
-    public function setAddress(string $address): self
-    {
-        $this->address = $address;
-
-        return $this;
-    }
-
-
-    /**
-     * @return Collection<int, Order>
-     */
-    public function getOrders(): Collection
-    {
-        return $this->orders;
-    }
-
-    /**
-     * @param Order $order
-     * @return $this
-     */
-    public function addOrder(Order $order): self
-    {
-        if (!$this->orders->contains($order)) {
-            $this->orders->add($order);
-            $order->setUser($this);
-        }
-
-        return $this;
-    }
-
-    public function removeOrder(Order $order): self
-    {
-        if ($this->orders->removeElement($order)) {
-            // set the owning side to null (unless already changed)
-            if ($order->getUser() === $this) {
-                $order->setUser(null);
-            }
-        }
-
-        return $this;
-    }
-
-    public function getCreatedAt(): ?\DateTimeInterface
-    {
-        return $this->created_at;
-    }
-
-    public function setCreatedAt(\DateTimeInterface $created_at): self
-    {
-        $this->created_at = $created_at;
-
-        return $this;
-    }
     public function setRoles(array $roles): void
     {
         $this->roles = $roles;
@@ -201,4 +169,49 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->email;
     }
 
+    public function getTicket(): ?Ticket
+    {
+        return $this->ticket;
+    }
+
+    public function setTicket(Ticket $ticket): static
+    {
+        // set the owning side of the relation if necessary
+        if ($ticket->getUserId() !== $this) {
+            $ticket->setUserId($this);
+        }
+
+        $this->ticket = $ticket;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Order>
+     */
+    public function getOrders(): Collection
+    {
+        return $this->orders;
+    }
+
+    public function addOrder(Order $order): self
+    {
+        if (!$this->orders->contains($order)) {
+            $this->orders[] = $order;
+            $order->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOrder(Order $order): self
+    {
+        if ($this->orders->removeElement($order)) {
+            if ($order->getUser() === $this) {
+                $order->setUser(null);
+            }
+        }
+
+        return $this;
+    }
 }

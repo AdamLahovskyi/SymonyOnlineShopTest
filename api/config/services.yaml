@@ -24,5 +24,12 @@ services:
         resource: '../src/Action/'
         tags: [ 'controller.service_arguments' ]
 
+    App\Controller\:
+        resource: '../src/Controller/'
+        tags: [ 'controller.service_arguments' ]
+
+    App\EntityListener\UserEntityListener:
+        tags:
+            - { name: 'doctrine.orm.entity_listener', entity: 'App\Entity\User', event: 'prePersist', method: 'prePersist' }
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
