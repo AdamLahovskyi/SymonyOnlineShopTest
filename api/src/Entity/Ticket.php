@@ -3,12 +3,30 @@
 namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
 use App\Repository\TicketRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
-#[ApiResource]
+#[ApiResource(
+    operations:[
+        new Get(normalizationContext: ['groups' => ['ticket:get']]),
+        new GetCollection(normalizationContext: ['groups' => ['ticket:get']]),
+        new Post(normalizationContext: ['groups' => ['ticket:get']], denormalizationContext: ['groups' => ['ticket:post']]),
+        new Put(security: "is_granted('ROLE_ADMIN')"),
+        new Patch(security: "is_granted('ROLE_ADMIN')"),
+        new Delete(security: "is_granted('ROLE_ADMIN')")
+    ],
+    normalizationContext: ['groups' => ['ticket:get']],
+    denormalizationContext: ['groups' => ['ticket:post']]
+)]
 class Ticket
 {
     #[ORM\Id]
@@ -18,19 +36,26 @@ class Ticket
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
     private ?float $price = null;
-
+    #[Groups([
+        'user:get',
+        'ticket:get',
+        'order:get',
+    ])]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $purchase_date = null;
-
+    #[Groups([
+        'user:get',
+        'ticket:get',
+        'order:get',
+    ])]
     #[ORM\Column(length: 255)]
     private ?string $status = null;
-
+    #[Groups([
+        'ticket:get',
+        'ticket:post',
+    ])]
     #[ORM\OneToOne(mappedBy: 'ticket', cascade: ['persist', 'remove'])]
     private ?Order $order = null;
-
-    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'tickets')]
-    #[ORM\JoinColumn(nullable: false)]
-    private ?User $user = null;
 
     public function getId(): ?int
     {
@@ -86,18 +111,6 @@ class Ticket
         }
 
         $this->order = $order;
-
-        return $this;
-    }
-
-    public function getUser(): ?User
-    {
-        return $this->user;
-    }
-
-    public function setUser(User $user): self
-    {
-        $this->user = $user;
 
         return $this;
     }
